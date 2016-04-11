@@ -1,0 +1,153 @@
+---
+title: 'Coursera: Practical Machine Learning - Prediction Assignment (https://www.coursera.org/learn/practical-machine-learning)'
+author: "Andreas Hoelzl [GitHub](https://github.com/AndyWoodly/practical-ml-prediction-assignment)"
+output:
+  html_document:
+    keep_md: yes
+    toc: yes
+---
+
+**Background**
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+
+**Data**
+
+Training data:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+Test data:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+Reference:
+
+http://groupware.les.inf.puc-rio.br/har.
+
+Velloso, E.; Bulling, A.; Gellersen, H.; Ugulino, W.; Fuks, H. Qualitative Activity Recognition of Weight Lifting Exercises. Proceedings of 4th International Conference in Cooperation with SIGCHI (Augmented Human '13) . Stuttgart, Germany: ACM SIGCHI, 2013.
+
+
+# Execution Environment
+
+Load required libraries. Prepare environment.
+
+```{r, echo=FALSE}
+message(R.Version()$version.string)
+library(caret)
+set.seed(12345)
+```
+
+# Prepare the datasets
+
+The training and testing data set are obtained from the following urls
+
+```{r}
+trainingUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testingUrl <- "http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+```
+
+Downloading and peeking into the data shows a lot of NA values for some measurements. We need to consider that when loading the data.
+
+```{r}
+trainingRaw <- read.csv(url(trainingUrl), na.strings=c("NA",""))
+dim(trainingRaw)
+testingRaw <- read.csv(url(testingUrl), na.strings=c("NA",""))
+dim(testingRaw)
+```
+
+There are 160 columns. 19622 training and 20 testing rows.
+
+```{r}
+names(trainingRaw)
+```
+
+These variables / columns should not be used for prediction:
+`"X"` index variable
+`"user_name"` the person who executed the exercise
+`"classe"` the classification result
+
+```{r}
+excludeCols <- c("X", "user_name")
+trainingRaw <- trainingRaw[ , !(names(trainingRaw) %in% excludeCols)]
+testingRaw <- testingRaw[ , !(names(testingRaw) %in% excludeCols)]
+```
+
+Discard columns with more than 95% NA or "" values.
+
+```{r}
+treshold <- dim(trainingRaw)[1] * 0.95
+validColumns <- !apply(trainingRaw, 2, function(x) sum(is.na(x)) > treshold  || sum(x=="") > treshold)
+trainingRaw <- trainingRaw[, validColumns]
+testingRaw <- testingRaw[, validColumns]
+```
+
+Discard columns with not enough information content (near zero variables).
+
+```{r}
+zeroCols <- nearZeroVar(trainingRaw, saveMetrics = TRUE)
+training <- trainingRaw[, zeroCols$nzv==FALSE]
+testing <- testingRaw[, zeroCols$nzv==FALSE]
+```
+
+Convert `classe` column into a factor.
+
+```{r}
+training$classe <- factor(training$classe)
+```
+
+Split the training dataset into a 60% training and 40% validation dataset.
+
+```{r}
+inTrain <- createDataPartition(y=training$classe, p=0.6, list=FALSE)
+validation <- training[-inTrain, ]
+training <- training[inTrain, ];
+```
+
+Now we have prepared 3 different data sets:
+`training` for training the prediction model
+`validation` for validating the prediction model
+`testing` for applying the prediction model and verifying the out of sample error
+
+
+# Train a prediction model
+
+Train 2 different models: generalized boosted regression model `gbm`, linear discriminant analysis `lda`.
+Note: long running training
+
+```{r}
+modelGBM <- train(classe ~ ., data=training, method="gbm")
+modelLGA <- train(classe ~ ., data=training, method="lda")
+```
+
+Predict using the validation data set and show the confusion matrix.
+
+```{r}
+predictionGBM <- predict(modelGBM, validation)
+confusionMatrix(predictionGBM, validation$classe)
+
+predictionLGA <- predict(modelLGA, validation)
+confusionMatrix(predictionLGA, validation$classe)
+```
+
+In our case the GBM performs much better than the LGA. 
+
+For the sake of curiosity let's define a combined model (random forrest `rf`) and verify
+
+```{r}
+trainginGBMLGA <- data.frame(predictionGBM, predictionLGA, classe=validation$classe)
+modelGBMLGA <- train(classe ~ ., method="rf", data=trainginGBMLGA)
+predictionGMALGA <- predict(modelGBMLGA, trainginGBMLGA)
+confusionMatrix(predictionGMALGA, trainginGBMLGA$classe)
+```
+
+The accuracy of the combined model is only slightly higher.
+
+# Evaluate the final model (GBM) on the testing dataset
+
+```{r}
+resultGBM  <- predict(modelGBM, testing)
+resultGBM
+```
+
