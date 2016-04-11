@@ -1,6 +1,6 @@
 ---
 title: 'Coursera: Practical Machine Learning - Prediction Assignment (https://www.coursera.org/learn/practical-machine-learning)'
-author: "Andreas Hoelzl [GitHub](https://github.com/andywoodly)"
+author: "Andreas Hoelzl [GitHub](https://github.com/AndyWoodly/practical-ml-prediction-assignment)"
 output:
   html_document:
     keep_md: yes
@@ -144,7 +144,7 @@ confusionMatrix(predictionGMALGA, trainginGBMLGA$classe)
 
 The accuracy of the combined model is only slightly higher.
 
-## Evaluate the final model (GBM) on the testing dataset
+# Evaluate the final model (GBM) on the testing dataset
 
 ```{r}
 resultGBM  <- predict(modelGBM, testing)
