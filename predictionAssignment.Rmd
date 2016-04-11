@@ -74,6 +74,15 @@ trainingRaw <- trainingRaw[ , !(names(trainingRaw) %in% excludeCols)]
 testingRaw <- testingRaw[ , !(names(testingRaw) %in% excludeCols)]
 ```
 
+Discard columns with more than 95% NA or "" values.
+
+```{r}
+treshold <- dim(trainingRaw)[1] * 0.95
+validColumns <- !apply(trainingRaw, 2, function(x) sum(is.na(x)) > treshold  || sum(x=="") > treshold)
+trainingRaw <- trainingRaw[, validColumns]
+testingRaw <- testingRaw[, validColumns]
+```
+
 Discard columns with not enough information content (near zero variables).
 
 ```{r}
@@ -122,20 +131,23 @@ predictionLGA <- predict(modelLGA, validation)
 confusionMatrix(predictionLGA, validation$classe)
 ```
 
-On the previous results train a combined model (random forrest `rf`) and verify
+In our case the GBM performs much better than the LGA. 
+
+For the sake of curiosity let's define a combined model (random forrest `rf`) and verify
 
 ```{r}
-predictionGBMLGA <- data.frame(predictionGBM, predictionLGA, classe=validation$classe)
-modelGMALGA <- train(classe ~ ., method="rf", data=predictionGBMLGA)
-predictionGMALGA <- predict(modelGMALGA, predictionGBMLGA)
-confusionMatrix(predictionGMALGA, predictionGBMLGA$classe)
+trainginGBMLGA <- data.frame(predictionGBM, predictionLGA, classe=validation$classe)
+modelGBMLGA <- train(classe ~ ., method="rf", data=trainginGBMLGA)
+predictionGMALGA <- predict(modelGBMLGA, trainginGBMLGA)
+confusionMatrix(predictionGMALGA, trainginGBMLGA$classe)
 ```
 
-## Evaluate the model on the testing dataset
+The accuracy of the combined model is only slightly higher.
+
+## Evaluate the final model (GBM) on the testing dataset
 
 ```{r}
-predictionFinal  <- predict(modelGMALGA, testing)
-confusionMatrix(predictionFinal, testing$classe)
-predictionFinal$finalModel
+resultGBM  <- predict(modelGBM, testing)
+resultGBM
 ```
 
